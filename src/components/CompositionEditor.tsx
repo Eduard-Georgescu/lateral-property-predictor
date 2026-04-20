@@ -1,10 +1,41 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, X, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KNOWN_ELEMENTS } from "@/lib/materialPresets";
 import { cn } from "@/lib/utils";
+
+/** Number input that allows the user to fully erase the value while typing. */
+const PctInput = ({ value, onCommit }: { value: number; onCommit: (n: number) => void }) => {
+  const [text, setText] = useState<string>(String(value));
+
+  useEffect(() => {
+    const parsed = parseFloat(text);
+    if (Number.isNaN(parsed) || parsed !== value) setText(String(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return (
+    <Input
+      type="number"
+      step="any"
+      min="0"
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setText(raw);
+        if (raw === "" || raw === "." || raw === "-") return;
+        const parsed = parseFloat(raw);
+        if (!Number.isNaN(parsed)) onCommit(parsed);
+      }}
+      onBlur={() => {
+        if (text === "" || Number.isNaN(parseFloat(text))) setText(String(value));
+      }}
+      className="h-8 border-0 bg-transparent font-mono text-sm focus-visible:ring-1"
+    />
+  );
+};
 
 interface CompositionEditorProps {
   composition: Record<string, number>;
@@ -107,14 +138,7 @@ export const CompositionEditor = ({
             <div className="flex h-8 w-10 items-center justify-center rounded-md bg-primary/15 font-mono text-sm font-semibold text-primary-glow">
               {el}
             </div>
-            <Input
-              type="number"
-              step="any"
-              min="0"
-              value={pct}
-              onChange={(e) => setPct(el, parseFloat(e.target.value) || 0)}
-              className="h-8 border-0 bg-transparent font-mono text-sm focus-visible:ring-1"
-            />
+            <PctInput value={pct} onCommit={(n) => setPct(el, n)} />
             <span className="font-mono text-xs text-muted-foreground">%</span>
             <button
               type="button"
