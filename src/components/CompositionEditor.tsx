@@ -109,9 +109,8 @@ export const CompositionEditor = ({
             </div>
             <Input
               type="number"
-              step="0.01"
+              step="any"
               min="0"
-              max="100"
               value={pct}
               onChange={(e) => setPct(el, parseFloat(e.target.value) || 0)}
               className="h-8 border-0 bg-transparent font-mono text-sm focus-visible:ring-1"
