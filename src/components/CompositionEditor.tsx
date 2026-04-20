@@ -29,7 +29,7 @@ export const CompositionEditor = ({
     () =>
       Object.entries(composition).map(([el, frac]) => ({
         el,
-        pct: +(frac * 100).toFixed(3),
+        pct: frac * 100,
       })),
     [composition]
   );
