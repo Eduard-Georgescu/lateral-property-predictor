@@ -31,7 +31,7 @@ const Field = ({
     </div>
     <Input
       type="number"
-      step={step}
+      step="any"
       min={min}
       value={value}
       onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
