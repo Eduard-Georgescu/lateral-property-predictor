@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ProcessParams } from "@/lib/lateralApi";
@@ -12,7 +13,6 @@ const Field = ({
   unit,
   hint,
   value,
-  step = 1,
   min = 0,
   onChange,
 }: {
@@ -23,23 +23,47 @@ const Field = ({
   step?: number;
   min?: number;
   onChange: (v: number) => void;
-}) => (
-  <div className="space-y-1.5">
-    <div className="flex items-baseline justify-between">
-      <Label className="text-sm font-medium">{label}</Label>
-      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{unit}</span>
+}) => {
+  const [text, setText] = useState<string>(String(value));
+
+  // Sync from outside (e.g. preset loaded) without clobbering active typing.
+  useEffect(() => {
+    const parsed = parseFloat(text);
+    if (Number.isNaN(parsed) || parsed !== value) {
+      setText(String(value));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline justify-between">
+        <Label className="text-sm font-medium">{label}</Label>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{unit}</span>
+      </div>
+      <Input
+        type="number"
+        step="any"
+        min={min}
+        value={text}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setText(raw);
+          if (raw === "" || raw === "-" || raw === ".") return;
+          const parsed = parseFloat(raw);
+          if (!Number.isNaN(parsed)) onChange(parsed);
+        }}
+        onBlur={() => {
+          if (text === "" || Number.isNaN(parseFloat(text))) {
+            setText(String(value));
+          }
+        }}
+        className="h-9 font-mono text-sm"
+      />
+      <p className="text-xs leading-tight text-muted-foreground">{hint}</p>
     </div>
-    <Input
-      type="number"
-      step="any"
-      min={min}
-      value={value}
-      onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-      className="h-9 font-mono text-sm"
-    />
-    <p className="text-xs leading-tight text-muted-foreground">{hint}</p>
-  </div>
-);
+  );
+};
 
 export const ProcessEditor = ({ process, onChange }: ProcessEditorProps) => {
   const set = (patch: Partial<ProcessParams>) => onChange({ ...process, ...patch });
