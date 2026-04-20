@@ -138,14 +138,7 @@ export const CompositionEditor = ({
             <div className="flex h-8 w-10 items-center justify-center rounded-md bg-primary/15 font-mono text-sm font-semibold text-primary-glow">
               {el}
             </div>
-            <Input
-              type="number"
-              step="any"
-              min="0"
-              value={pct}
-              onChange={(e) => setPct(el, parseFloat(e.target.value) || 0)}
-              className="h-8 border-0 bg-transparent font-mono text-sm focus-visible:ring-1"
-            />
+            <PctInput value={pct} onCommit={(n) => setPct(el, n)} />
             <span className="font-mono text-xs text-muted-foreground">%</span>
             <button
               type="button"
