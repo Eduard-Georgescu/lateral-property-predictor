@@ -150,9 +150,12 @@ export const ResultsPanel = ({
                 Identified material
               </p>
               <h2 className="mt-1 font-display text-3xl font-semibold tracking-tight">
-                {results.category}
+                {headerName}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
+                {displayName && displayName !== results.category && (
+                  <>Classifier: <span className="font-mono text-foreground">{results.category}</span>{"  ·  "}</>
+                )}
                 Phase: <span className="font-mono text-foreground">{results.phase}</span>
                 {"  ·  "}Crystal: <span className="font-mono text-foreground">{results.crystal_system}</span>
               </p>
@@ -189,7 +192,7 @@ export const ResultsPanel = ({
 
         {/* Metric groups */}
         <div className="space-y-6 p-6">
-          {(Object.keys(grouped) as MetricDef["group"][]).map((g) =>
+          {(Object.keys(grouped) as (MetricDef["group"] | "other")[]).map((g) =>
             grouped[g].length === 0 ? null : (
               <section key={g}>
                 <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
