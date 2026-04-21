@@ -61,7 +61,8 @@ export interface SimulateResponse {
 }
 
 const DEFAULT_API =
-  (import.meta.env.VITE_LATERAL_API as string | undefined)?.replace(/\/$/, "") ?? "";
+  (import.meta.env.VITE_LATERAL_API as string | undefined)?.replace(/\/$/, "") ??
+  "https://egeorgescu-lateral.hf.space";
 
 export function getApiBase(): string {
   // Allow runtime override via localStorage so users can paste their HF Space URL
