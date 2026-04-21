@@ -82,12 +82,11 @@ export const CompositionEditor = ({
   const addEl = () => {
     const sym = newEl.trim();
     if (!sym) return;
-    // Normalize like "fe" -> "Fe"
-    const norm = sym.charAt(0).toUpperCase() + sym.slice(1).toLowerCase();
-    if (!KNOWN_ELEMENTS.includes(norm)) {
-      // Still allow it, but flag visually via state if needed; we'll just block unknown.
-      return;
-    }
+    // Normalize like "fe" -> "Fe", "FE" -> "Fe"
+    const norm =
+      sym.length === 1
+        ? sym.toUpperCase()
+        : sym.charAt(0).toUpperCase() + sym.slice(1).toLowerCase();
     if (composition[norm] !== undefined) return;
     onChange({ ...composition, [norm]: 0 });
     setNewEl("");
@@ -164,7 +163,6 @@ export const CompositionEditor = ({
             }
           }}
           className="h-9 max-w-[180px] font-mono text-sm"
-          maxLength={3}
         />
         <Button size="sm" variant="secondary" onClick={addEl} className="gap-1.5">
           <Plus className="h-3.5 w-3.5" /> Add

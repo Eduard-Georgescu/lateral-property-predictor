@@ -1,38 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useMutation } from "@tanstack/react-query";
-import { ArrowRight, Beaker, Cpu, Download, ExternalLink, FileJson, FlaskConical, Github, Sparkles } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowRight, Beaker, Cpu, ExternalLink, FlaskConical, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrandMark } from "@/components/BrandMark";
 import { BackendSettings } from "@/components/BackendSettings";
-import { CompositionEditor } from "@/components/CompositionEditor";
-import { ProcessEditor } from "@/components/ProcessEditor";
-import { PresetGallery } from "@/components/PresetGallery";
-import { ResultsPanel } from "@/components/ResultsPanel";
-import { SimulationLoader } from "@/components/SimulationLoader";
-
-import { MATERIAL_PRESETS, type MaterialPreset } from "@/lib/materialPresets";
-import {
-  checkHealth,
-  getApiBase,
-  simulate,
-  type ProcessParams,
-  type SimulateResponse,
-} from "@/lib/lateralApi";
+import { checkHealth, getApiBase } from "@/lib/lateralApi";
 
 const Index = () => {
-  const initial = MATERIAL_PRESETS[0];
-  const [presetId, setPresetId] = useState<string>(initial.id);
-  const [composition, setComposition] = useState<Record<string, number>>(initial.composition);
-  const [process, setProcess] = useState<ProcessParams>(initial.process);
-  const [response, setResponse] = useState<SimulateResponse | null>(null);
   const [backendOk, setBackendOk] = useState<boolean | null>(null);
 
-  // Probe backend on load and whenever the URL changes via the dialog.
   const probeBackend = async () => {
     if (!getApiBase()) {
       setBackendOk(false);
@@ -49,61 +28,6 @@ const Index = () => {
   useEffect(() => {
     probeBackend();
   }, []);
-
-  const mutation = useMutation({
-    mutationFn: simulate,
-    onSuccess: (data) => {
-      setResponse(data);
-      toast.success("Simulation complete", {
-        description: `${data.results.category} · ${(data.results.classification_confidence * 100).toFixed(0)}% confidence`,
-      });
-    },
-    onError: (err: Error) => {
-      toast.error("Simulation failed", { description: err.message });
-    },
-  });
-
-  const onPreset = (p: MaterialPreset) => {
-    setPresetId(p.id);
-    setComposition(p.composition);
-    setProcess(p.process);
-    setResponse(null);
-  };
-
-  const onRun = () => {
-    if (!getApiBase()) {
-      toast.error("Backend not configured", {
-        description: "Open Backend settings (top right) and paste your Hugging Face Space URL.",
-      });
-      return;
-    }
-    // Normalize composition before sending
-    const total = Object.values(composition).reduce((s, v) => s + v, 0);
-    if (total <= 0) {
-      toast.error("Composition is empty");
-      return;
-    }
-    const normalized: Record<string, number> = {};
-    for (const [el, frac] of Object.entries(composition)) normalized[el] = frac / total;
-    mutation.mutate({ composition: normalized, process });
-  };
-
-  const exportJson = () => {
-    if (!response) return;
-    const payload = {
-      input: { composition, process },
-      output: response.results,
-      log: response.log,
-      timestamp: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `lateral-${response.results.category.replace(/\W+/g, "_")}-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   const statusChip = useMemo(() => {
     if (backendOk === null) {
@@ -123,14 +47,13 @@ const Index = () => {
     }
     return (
       <span className="inline-flex items-center gap-2 rounded-full border border-warning/40 bg-warning/10 px-3 py-1 text-xs text-warning">
-        <span className="h-1.5 w-1.5 rounded-full bg-warning" /> Backend not connected
+        <span className="h-1.5 w-1.5 rounded-full bg-warning" /> Backend offline
       </span>
     );
   }, [backendOk]);
 
   return (
     <div className="min-h-screen text-foreground">
-      {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/70 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
@@ -145,11 +68,15 @@ const Index = () => {
           <div className="flex items-center gap-3">
             {statusChip}
             <BackendSettings onConnected={probeBackend} />
+            <Button asChild size="sm" className="bg-gradient-primary text-primary-foreground shadow-glow">
+              <Link to="/workbench">
+                Open workbench <ArrowRight className="ml-1 h-3.5 w-3.5" />
+              </Link>
+            </Button>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 grid-bg opacity-60" aria-hidden />
         <div className="container relative py-16 lg:py-24">
@@ -178,13 +105,13 @@ const Index = () => {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button
                 size="lg"
-                onClick={() => {
-                  document.getElementById("workbench")?.scrollIntoView({ behavior: "smooth" });
-                }}
+                asChild
                 className="bg-gradient-primary text-primary-foreground shadow-glow transition-transform hover:scale-[1.02]"
               >
-                Open workbench
-                <ArrowRight className="ml-1 h-4 w-4" />
+                <Link to="/workbench">
+                  Open workbench
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
               </Button>
               <Button
                 size="lg"
@@ -196,7 +123,6 @@ const Index = () => {
               </Button>
             </div>
 
-            {/* Stats strip */}
             <div className="mt-12 grid max-w-2xl grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-4">
               {[
                 { label: "Material families", value: "26" },
@@ -216,97 +142,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Workbench */}
-      <section id="workbench" className="container pb-24">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Left rail: presets */}
-          <aside className="lg:col-span-4">
-            <Card className="glass-card sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto p-5">
-              <PresetGallery selectedId={presetId} onSelect={onPreset} />
-            </Card>
-          </aside>
-
-          {/* Right: editors + run + results */}
-          <div className="space-y-6 lg:col-span-8">
-            <Card className="glass-card-elevated p-6">
-              <Tabs defaultValue="composition" className="w-full">
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                  <TabsList className="bg-surface-elevated">
-                    <TabsTrigger value="composition" className="gap-2">
-                      <Beaker className="h-3.5 w-3.5" /> Composition
-                    </TabsTrigger>
-                    <TabsTrigger value="process" className="gap-2">
-                      <FlaskConical className="h-3.5 w-3.5" /> Process
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <Button
-                    size="lg"
-                    onClick={onRun}
-                    disabled={mutation.isPending}
-                    className="gap-2 bg-gradient-primary text-primary-foreground shadow-glow"
-                  >
-                    <Cpu className="h-4 w-4" />
-                    {mutation.isPending ? "Simulating…" : "Run simulation"}
-                  </Button>
-                </div>
-
-                <TabsContent value="composition" className="mt-0">
-                  <CompositionEditor
-                    composition={composition}
-                    onChange={setComposition}
-                    onReset={() => setComposition({})}
-                  />
-                </TabsContent>
-                <TabsContent value="process" className="mt-0">
-                  <ProcessEditor process={process} onChange={setProcess} />
-                </TabsContent>
-              </Tabs>
-            </Card>
-
-            {/* Results / loader / placeholder */}
-            {mutation.isPending ? (
-              <SimulationLoader />
-            ) : response ? (
-              <div className="space-y-3">
-                <ResultsPanel results={response.results} />
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={exportJson} className="gap-2">
-                    <Download className="h-3.5 w-3.5" /> Export JSON
-                  </Button>
-                </div>
-
-                {response.log && (
-                  <details className="glass-card group p-4">
-                    <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-                      <FileJson className="h-3.5 w-3.5" />
-                      Engine log
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        click to expand
-                      </span>
-                    </summary>
-                    <pre className="mt-3 max-h-72 overflow-auto rounded-md bg-background/60 p-3 font-mono text-[11px] leading-relaxed text-muted-foreground">
-                      {response.log}
-                    </pre>
-                  </details>
-                )}
-              </div>
-            ) : (
-              <Card className="glass-card flex flex-col items-center justify-center gap-3 p-12 text-center">
-                <BrandMark size={48} className="opacity-70" />
-                <h3 className="font-display text-lg font-semibold">Ready when you are</h3>
-                <p className="max-w-md text-sm text-muted-foreground">
-                  Pick a preset on the left, tweak the composition or process if you like, and hit{" "}
-                  <span className="font-medium text-foreground">Run simulation</span>. Results appear here
-                  in a few seconds.
-                </p>
-              </Card>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* How it works */}
       <section id="how-it-works" className="border-t border-border/60 bg-surface/40">
         <div className="container py-20">
           <div className="mx-auto max-w-2xl text-center">
@@ -359,10 +194,16 @@ const Index = () => {
               );
             })}
           </div>
+          <div className="mt-10 flex justify-center">
+            <Button asChild size="lg" className="bg-gradient-primary text-primary-foreground shadow-glow">
+              <Link to="/workbench">
+                Launch the workbench <ArrowRight className="ml-1 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="border-t border-border/60">
         <div className="container flex flex-col items-center justify-between gap-3 py-8 text-xs text-muted-foreground md:flex-row">
           <div className="flex items-center gap-2">

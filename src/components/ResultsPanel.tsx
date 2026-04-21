@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Atom, Beaker, Boxes, Flame, Gauge, Layers, Microscope, Ruler, Shield, Snowflake, Thermometer, TrendingUp } from "lucide-react";
+import { Activity, Atom, Beaker, Boxes, Flame, Gauge, Layers, Microscope, Ruler, Shield, Snowflake, Thermometer, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -46,11 +46,12 @@ const METRICS: MetricDef[] = [
   { key: "binder_fraction", label: "Binder fraction", unit: "%", icon: Beaker, group: "microstructure", format: (v) => (v * 100).toFixed(1) },
 ];
 
-const GROUP_LABEL: Record<MetricDef["group"], string> = {
+const GROUP_LABEL: Record<MetricDef["group"] | "other", string> = {
   mechanical: "Mechanical",
   structural: "Structural",
   thermal: "Thermal",
   microstructure: "Microstructure",
+  other: "Additional properties",
 };
 
 const MetricTile = ({ def, value, index }: { def: MetricDef; value: number; index: number }) => {
@@ -79,20 +80,62 @@ const MetricTile = ({ def, value, index }: { def: MetricDef; value: number; inde
   );
 };
 
-export const ResultsPanel = ({ results }: { results: SimulationResults }) => {
-  const grouped: Record<MetricDef["group"], { def: MetricDef; value: number }[]> = {
-    mechanical: [], structural: [], thermal: [], microstructure: [],
+// Keys we never want to render as a metric tile (already shown in header or non-numeric meta)
+const EXCLUDED_KEYS = new Set<string>([
+  "category",
+  "phase",
+  "crystal_system",
+  "prediction_mode",
+  "classification_confidence",
+  "ml_confidence",
+]);
+
+const humanizeKey = (k: string) =>
+  k
+    .replace(/_/g, " ")
+    .replace(/\bpct\b/i, "%")
+    .replace(/\b([a-z])/g, (m) => m.toUpperCase());
+
+export const ResultsPanel = ({
+  results,
+  displayName,
+}: {
+  results: SimulationResults;
+  displayName?: string;
+}) => {
+  const grouped: Record<MetricDef["group"] | "other", { def: MetricDef; value: number }[]> = {
+    mechanical: [], structural: [], thermal: [], microstructure: [], other: [],
   };
+  const seen = new Set<string>();
   for (const def of METRICS) {
     const v = results[def.key as keyof SimulationResults];
     if (typeof v === "number" && !Number.isNaN(v)) {
       grouped[def.group].push({ def, value: v });
+      seen.add(String(def.key));
+    }
+  }
+  // Render every other numeric field the backend returned, so nothing is hidden.
+  for (const [k, v] of Object.entries(results)) {
+    if (seen.has(k) || EXCLUDED_KEYS.has(k)) continue;
+    if (typeof v === "number" && !Number.isNaN(v)) {
+      grouped.other.push({
+        def: {
+          key: k,
+          label: humanizeKey(k),
+          unit: "",
+          icon: Activity,
+          group: "microstructure",
+          format: (n) => (Math.abs(n) >= 1000 || Number.isInteger(n) ? n.toFixed(0) : n.toFixed(3)),
+        },
+        value: v,
+      });
     }
   }
 
   const classConf = (results.classification_confidence * 100).toFixed(0);
   const mlConf = (results.ml_confidence * 100).toFixed(0);
   const mlActive = results.ml_confidence > 0;
+  const headerName = displayName ?? results.category;
 
   let i = 0;
   return (
@@ -107,9 +150,12 @@ export const ResultsPanel = ({ results }: { results: SimulationResults }) => {
                 Identified material
               </p>
               <h2 className="mt-1 font-display text-3xl font-semibold tracking-tight">
-                {results.category}
+                {headerName}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
+                {displayName && displayName !== results.category && (
+                  <>Classifier: <span className="font-mono text-foreground">{results.category}</span>{"  ·  "}</>
+                )}
                 Phase: <span className="font-mono text-foreground">{results.phase}</span>
                 {"  ·  "}Crystal: <span className="font-mono text-foreground">{results.crystal_system}</span>
               </p>
@@ -146,7 +192,7 @@ export const ResultsPanel = ({ results }: { results: SimulationResults }) => {
 
         {/* Metric groups */}
         <div className="space-y-6 p-6">
-          {(Object.keys(grouped) as MetricDef["group"][]).map((g) =>
+          {(Object.keys(grouped) as (MetricDef["group"] | "other")[]).map((g) =>
             grouped[g].length === 0 ? null : (
               <section key={g}>
                 <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
