@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, GripVertical, ArrowDown } from "lucide-react";
 
@@ -9,14 +9,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
   buildStep,
-  STEP_KINDS,
+  CATEGORY_LABEL,
+  computeEnergyDensity,
+  groupedStepKinds,
   stepKindMeta,
+  stepVariantMeta,
   type ProcessStep,
+  type StepExtras,
   type StepKind,
 } from "@/lib/processSteps";
 import type { ProcessParams } from "@/lib/lateralApi";
@@ -76,25 +82,131 @@ const NumField = ({
   );
 };
 
+/* ---------- grouped step-kind dropdown (used for both Add and Change) ---------- */
+const GroupedKindMenu = ({
+  trigger,
+  onPick,
+  align = "start",
+}: {
+  trigger: React.ReactNode;
+  onPick: (k: StepKind) => void;
+  align?: "start" | "end";
+}) => {
+  const groups = useMemo(() => groupedStepKinds(), []);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuContent align={align} className="w-72 max-h-[60vh] overflow-y-auto">
+        {groups.map((g, gi) => (
+          <div key={g.category}>
+            {gi > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuLabel className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {CATEGORY_LABEL[g.category]}
+            </DropdownMenuLabel>
+            {g.items.map((k) => (
+              <DropdownMenuItem key={k.kind} onClick={() => onPick(k.kind)} className="py-2">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{k.label}</span>
+                  <span className="text-[11px] text-muted-foreground">{k.hint}</span>
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </div>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+/* ---------- variant picker for a step that supports variants ---------- */
+const VariantPicker = ({
+  step,
+  onPick,
+}: {
+  step: ProcessStep;
+  onPick: (variantId: string) => void;
+}) => {
+  const meta = stepKindMeta(step.kind);
+  if (!meta.variants?.length) return null;
+  const current = stepVariantMeta(step.kind, step.variantId) ?? meta.variants[0];
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/40 px-2 py-1 text-[11px] font-medium hover:border-primary/40 hover:bg-surface-elevated"
+        >
+          <span className="text-muted-foreground">Variant:</span>
+          <span className="text-foreground">{current.label}</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64">
+        {meta.variants.map((v) => (
+          <DropdownMenuItem key={v.id} onClick={() => onPick(v.id)} className="py-2">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">{v.label}</span>
+              {v.hint && <span className="text-[11px] text-muted-foreground">{v.hint}</span>}
+            </div>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+/* ---------- AM-specific extras with live energy-density readout ---------- */
+const AmExtras = ({
+  extras,
+  onPatch,
+}: {
+  extras: StepExtras;
+  onPatch: (patch: Partial<StepExtras>) => void;
+}) => {
+  const ed = computeEnergyDensity(extras);
+  return (
+    <div className="mt-3 rounded-md border border-border/50 bg-background/30 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          AM parameters
+        </span>
+        <span className="font-mono text-[10px] text-accent">
+          E = {ed !== undefined ? `${ed.toFixed(1)} J/mm³` : "—"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <NumField label="Power" unit="W" value={extras.power ?? 0} onChange={(v) => onPatch({ power: v })} />
+        <NumField label="Scan speed" unit="mm/s" value={extras.scan_speed ?? 0} onChange={(v) => onPatch({ scan_speed: v })} />
+        <NumField label="Layer" unit="µm" value={extras.layer_thickness ?? 0} onChange={(v) => onPatch({ layer_thickness: v })} />
+        <NumField label="Hatch" unit="µm" value={extras.hatch_spacing ?? 0} onChange={(v) => onPatch({ hatch_spacing: v })} />
+      </div>
+    </div>
+  );
+};
+
 /* ---------- single step card ---------- */
 const StepCard = ({
   step,
   index,
   total,
   onPatch,
+  onPatchExtras,
   onRemove,
   onMove,
   onChangeKind,
+  onChangeVariant,
 }: {
   step: ProcessStep;
   index: number;
   total: number;
   onPatch: (patch: Partial<ProcessParams>) => void;
+  onPatchExtras: (patch: Partial<StepExtras>) => void;
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
   onChangeKind: (k: StepKind) => void;
+  onChangeVariant: (variantId: string) => void;
 }) => {
   const meta = stepKindMeta(step.kind);
+  const extras = step.extras ?? {};
 
   return (
     <motion.div
@@ -122,26 +234,23 @@ const StepCard = ({
         </div>
 
         <div className="min-w-0 flex-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-md px-2 py-1 -mx-2 -my-1 text-left transition-colors hover:bg-surface-elevated">
-                <span className="font-display text-sm font-semibold">{meta.label}</span>
-                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  change
-                </span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              {STEP_KINDS.map((k) => (
-                <DropdownMenuItem key={k.kind} onClick={() => onChangeKind(k.kind)}>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{k.label}</span>
-                    <span className="text-[11px] text-muted-foreground">{k.hint}</span>
-                  </div>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex flex-wrap items-center gap-2">
+            <GroupedKindMenu
+              onPick={onChangeKind}
+              trigger={
+                <button className="flex items-center gap-2 rounded-md px-2 py-1 -mx-2 -my-1 text-left transition-colors hover:bg-surface-elevated">
+                  <span className="font-display text-sm font-semibold">{meta.label}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    change
+                  </span>
+                </button>
+              }
+            />
+            <span className="rounded-full border border-border/60 bg-background/40 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+              {CATEGORY_LABEL[meta.category]}
+            </span>
+            {meta.variants && <VariantPicker step={step} onPick={onChangeVariant} />}
+          </div>
           <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{meta.hint}</p>
         </div>
 
@@ -181,7 +290,7 @@ const StepCard = ({
         </div>
       </div>
 
-      {/* Params */}
+      {/* Core thermal params */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <NumField label="Temp" unit="°C" value={step.params.temp} onChange={(v) => onPatch({ temp: v })} />
         <NumField label="Hold" unit="hours" value={step.params.time} onChange={(v) => onPatch({ time: v })} />
@@ -208,6 +317,29 @@ const StepCard = ({
           </>
         )}
       </div>
+
+      {/* Process-specific extras */}
+      {step.kind === "am" && <AmExtras extras={extras} onPatch={onPatchExtras} />}
+
+      {step.kind === "sps" && (
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <NumField label="Pressure" unit="MPa" value={extras.pressure ?? 0} onChange={(v) => onPatchExtras({ pressure: v })} />
+          <NumField label="Heating rate" unit="°C/min" value={extras.heating_rate ?? 0} onChange={(v) => onPatchExtras({ heating_rate: v })} />
+          <NumField label="Green density" unit="%" value={extras.green_density ?? 0} onChange={(v) => onPatchExtras({ green_density: v })} />
+        </div>
+      )}
+
+      {step.kind === "hip" && (
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <NumField label="Pressure" unit="MPa" value={extras.pressure ?? 0} onChange={(v) => onPatchExtras({ pressure: v })} />
+        </div>
+      )}
+
+      {step.kind === "casting" && step.variantId === "wrought" && (
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <NumField label="Reduction" unit="%" value={extras.reduction ?? 0} onChange={(v) => onPatchExtras({ reduction: v })} />
+        </div>
+      )}
     </motion.div>
   );
 };
@@ -216,6 +348,19 @@ const StepCard = ({
 export const ProcessPipelineEditor = ({ steps, onChange }: Props) => {
   const patch = (id: string, p: Partial<ProcessParams>) =>
     onChange(steps.map((s) => (s.id === id ? { ...s, params: { ...s.params, ...p } } : s)));
+
+  const patchExtras = (id: string, p: Partial<StepExtras>) =>
+    onChange(
+      steps.map((s) => {
+        if (s.id !== id) return s;
+        const nextExtras = { ...(s.extras ?? {}), ...p } as StepExtras;
+        if (s.kind === "am") {
+          const ed = computeEnergyDensity(nextExtras);
+          if (ed !== undefined) nextExtras.energy_density = Math.round(ed * 10) / 10;
+        }
+        return { ...s, extras: nextExtras };
+      }),
+    );
 
   const remove = (id: string) => onChange(steps.filter((s) => s.id !== id));
 
@@ -231,9 +376,28 @@ export const ProcessPipelineEditor = ({ steps, onChange }: Props) => {
 
   const changeKind = (id: string, k: StepKind) =>
     onChange(
-      steps.map((s) =>
-        s.id === id ? { ...s, kind: k, label: stepKindMeta(k).label, params: { ...stepKindMeta(k).defaults } } : s,
-      ),
+      steps.map((s) => {
+        if (s.id !== id) return s;
+        const fresh = buildStep(k);
+        return { ...fresh, id: s.id };
+      }),
+    );
+
+  const changeVariant = (id: string, variantId: string) =>
+    onChange(
+      steps.map((s) => {
+        if (s.id !== id) return s;
+        const variant = stepVariantMeta(s.kind, variantId);
+        if (!variant) return s;
+        return {
+          ...s,
+          variantId,
+          params: { ...s.params, ...variant.defaults },
+          extras: variant.extras
+            ? { ...(s.extras ?? {}), ...variant.extras }
+            : s.extras,
+        };
+      }),
     );
 
   const add = (k: StepKind) => onChange([...steps, buildStep(k)]);
@@ -244,27 +408,19 @@ export const ProcessPipelineEditor = ({ steps, onChange }: Props) => {
         <div>
           <h3 className="font-display text-lg font-semibold">Process pipeline</h3>
           <p className="text-xs text-muted-foreground">
-            Chain heat-treatment steps. Each runs in sequence on the same composition,
+            Chain LatERAL processing steps. Each runs in sequence on the same composition,
             and you'll see how density & properties evolve.
           </p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <GroupedKindMenu
+          align="end"
+          onPick={add}
+          trigger={
             <Button size="sm" variant="outline" className="gap-1.5 shrink-0">
               <Plus className="h-3.5 w-3.5" /> Add step
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-60">
-            {STEP_KINDS.map((k) => (
-              <DropdownMenuItem key={k.kind} onClick={() => add(k.kind)}>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium">{k.label}</span>
-                  <span className="text-[11px] text-muted-foreground">{k.hint}</span>
-                </div>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          }
+        />
       </div>
 
       <div className="space-y-2">
@@ -276,9 +432,11 @@ export const ProcessPipelineEditor = ({ steps, onChange }: Props) => {
                 index={i}
                 total={steps.length}
                 onPatch={(p) => patch(s.id, p)}
+                onPatchExtras={(p) => patchExtras(s.id, p)}
                 onRemove={() => remove(s.id)}
                 onMove={(d) => move(s.id, d)}
                 onChangeKind={(k) => changeKind(s.id, k)}
+                onChangeVariant={(v) => changeVariant(s.id, v)}
               />
               {i < steps.length - 1 && (
                 <div
