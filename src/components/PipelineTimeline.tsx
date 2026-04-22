@@ -70,6 +70,8 @@ export const PipelineTimeline = ({ stages }: Props) => {
               </th>
               {stages.map((s, i) => {
                 const meta = stepKindMeta(s.step.kind);
+                const variant = stepVariantMeta(s.step.kind, s.step.variantId);
+                const shortVariant = variant?.label.split(" ")[0].replace(/[—-]$/, "");
                 return (
                   <th
                     key={s.step.id}
@@ -81,6 +83,11 @@ export const PipelineTimeline = ({ stages }: Props) => {
                       </span>
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
                         {meta.short}
+                        {shortVariant && (
+                          <span className="ml-1 text-muted-foreground normal-case tracking-normal">
+                            ({shortVariant})
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="mt-1 font-mono text-[10px] text-muted-foreground">
