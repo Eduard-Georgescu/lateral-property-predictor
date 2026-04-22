@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { SimulationResults } from "@/lib/lateralApi";
-import { stepKindMeta, type ProcessStep } from "@/lib/processSteps";
+import { stepKindMeta, stepVariantMeta, type ProcessStep } from "@/lib/processSteps";
 
 export interface PipelineStageResult {
   step: ProcessStep;
