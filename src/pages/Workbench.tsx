@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrandMark } from "@/components/BrandMark";
-import { BackendSettings } from "@/components/BackendSettings";
 import { CompositionEditor } from "@/components/CompositionEditor";
 import { ProcessPipelineEditor } from "@/components/ProcessPipelineEditor";
 import { PresetGallery } from "@/components/PresetGallery";
@@ -18,7 +17,6 @@ import { PipelineTimeline, type PipelineStageResult } from "@/components/Pipelin
 import { MATERIAL_PRESETS, type MaterialPreset } from "@/lib/materialPresets";
 import {
   checkHealth,
-  getApiBase,
   simulate,
   type ProcessParams,
   type SimulateResponse,
@@ -66,10 +64,6 @@ const Workbench = () => {
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
 
   const probeBackend = async () => {
-    if (!getApiBase()) {
-      setBackendOk(false);
-      return;
-    }
     try {
       const h = await checkHealth();
       setBackendOk(h.status === "ok");
@@ -108,10 +102,6 @@ const Workbench = () => {
   }, [stages]);
 
   const onRun = async () => {
-    if (!getApiBase()) {
-      toast.error("Backend not configured");
-      return;
-    }
     if (steps.length === 0) {
       toast.error("Add at least one process step");
       return;
@@ -207,7 +197,6 @@ const Workbench = () => {
           </div>
           <div className="flex items-center gap-3">
             {statusChip}
-            <BackendSettings onConnected={probeBackend} />
             <Button variant="ghost" size="sm" asChild className="gap-2">
               <Link to="/">
                 <ArrowLeft className="h-3.5 w-3.5" /> Home
