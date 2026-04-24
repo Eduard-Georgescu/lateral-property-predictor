@@ -1,8 +1,6 @@
 /**
  * LatERAL backend client.
- * Points at the Hugging Face Space (or any FastAPI deployment) defined by
- * VITE_LATERAL_API. Set it in your project env (or .env.local) to your
- * Space URL, e.g. https://your-username-lateral.hf.space
+ * Backend URL is hardcoded and obfuscated — end users never see or configure it.
  */
 
 export interface ProcessParams {
@@ -60,25 +58,15 @@ export interface SimulateResponse {
   log: string;
 }
 
-const DEFAULT_API =
-  (import.meta.env.VITE_LATERAL_API as string | undefined)?.replace(/\/$/, "") ??
-  "https://egeorgescu-lateral.hf.space";
+// Obfuscated endpoint — assembled at runtime so the URL doesn't appear as a
+// single readable string in the bundled JS.
+const _ep = (() => {
+  const a = ["egeorgescu", "lateral", "hf", "space"];
+  const b = ["https:", "", `${a[0]}-${a[1]}.${a[2]}.${a[3]}`];
+  return b.join("//").replace("///", "//");
+})();
 
-export function getApiBase(): string {
-  // Allow runtime override via localStorage so users can paste their HF Space URL
-  // without rebuilding.
-  if (typeof window !== "undefined") {
-    const override = window.localStorage.getItem("lateral_api_base");
-    if (override) return override.replace(/\/$/, "");
-  }
-  return DEFAULT_API;
-}
-
-export function setApiBase(url: string) {
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem("lateral_api_base", url.replace(/\/$/, ""));
-  }
-}
+const API_BASE = _ep.replace(/\/$/, "");
 
 export class LateralApiError extends Error {
   status?: number;
@@ -89,13 +77,7 @@ export class LateralApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const base = getApiBase();
-  if (!base) {
-    throw new LateralApiError(
-      "Backend URL not configured. Open Settings and paste your Hugging Face Space URL."
-    );
-  }
-  const res = await fetch(`${base}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       "content-type": "application/json",
@@ -110,7 +92,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* ignore */
     }
-    throw new LateralApiError(`API ${res.status}: ${detail}`, res.status);
+    throw new LateralApiError(`Inference engine error ${res.status}: ${detail}`, res.status);
   }
   return res.json() as Promise<T>;
 }

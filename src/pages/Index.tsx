@@ -6,17 +6,12 @@ import { ArrowRight, Beaker, Cpu, ExternalLink, FlaskConical, Sparkles } from "l
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BrandMark } from "@/components/BrandMark";
-import { BackendSettings } from "@/components/BackendSettings";
-import { checkHealth, getApiBase } from "@/lib/lateralApi";
+import { checkHealth } from "@/lib/lateralApi";
 
 const Index = () => {
   const [backendOk, setBackendOk] = useState<boolean | null>(null);
 
   const probeBackend = async () => {
-    if (!getApiBase()) {
-      setBackendOk(false);
-      return;
-    }
     try {
       const h = await checkHealth();
       setBackendOk(h.status === "ok");
@@ -67,7 +62,6 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-3">
             {statusChip}
-            <BackendSettings onConnected={probeBackend} />
             <Button asChild size="sm" className="bg-gradient-primary text-primary-foreground shadow-glow">
               <Link to="/workbench">
                 Open workbench <ArrowRight className="ml-1 h-3.5 w-3.5" />
