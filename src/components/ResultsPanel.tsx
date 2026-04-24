@@ -18,6 +18,7 @@ interface MetricDef {
 const METRICS: MetricDef[] = [
   { key: "yield_strength", label: "Yield strength", unit: "MPa", icon: Shield, group: "mechanical", format: (v) => v.toFixed(0) },
   { key: "hardness", label: "Hardness", unit: "HV", icon: Gauge, group: "mechanical", format: (v) => v.toFixed(0) },
+  { key: "hardness_hv", label: "Hardness (HV)", unit: "HV", icon: Gauge, group: "mechanical", format: (v) => v.toFixed(0) },
   { key: "fracture_toughness", label: "Fracture toughness", unit: "MPa·m½", icon: TrendingUp, group: "mechanical", format: (v) => v.toFixed(1) },
   { key: "elongation_pct", label: "Elongation", unit: "%", icon: Ruler, group: "mechanical", format: (v) => v.toFixed(1) },
 
