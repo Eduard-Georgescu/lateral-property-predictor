@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Beaker, Cpu, Download, FileJson, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
@@ -16,7 +16,6 @@ import { PipelineTimeline, type PipelineStageResult } from "@/components/Pipelin
 
 import { MATERIAL_PRESETS, type MaterialPreset } from "@/lib/materialPresets";
 import {
-  checkHealth,
   simulate,
   type ProcessParams,
   type SimulateResponse,
@@ -59,22 +58,8 @@ const Workbench = () => {
   const [steps, setSteps] = useState<ProcessStep[]>(() => pipelineFromProcess(initial.process));
   const [stages, setStages] = useState<PipelineStageResult[]>([]);
   const [usedPresetName, setUsedPresetName] = useState<string | null>(initial.name);
-  const [backendOk, setBackendOk] = useState<boolean | null>(null);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
-
-  const probeBackend = async () => {
-    try {
-      const h = await checkHealth();
-      setBackendOk(h.status === "ok");
-    } catch {
-      setBackendOk(false);
-    }
-  };
-
-  useEffect(() => {
-    probeBackend();
-  }, []);
 
   const onPreset = (p: MaterialPreset) => {
     setPresetId(p.id);
@@ -157,29 +142,6 @@ const Workbench = () => {
     URL.revokeObjectURL(url);
   };
 
-  const statusChip = useMemo(() => {
-    if (backendOk === null) {
-      return (
-        <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-elevated/80 px-3 py-1 text-xs text-muted-foreground">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground/60" />
-          Checking backend…
-        </span>
-      );
-    }
-    if (backendOk) {
-      return (
-        <span className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-xs text-success">
-          <span className="pulse-dot" /> Inference engine online
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-2 rounded-full border border-warning/40 bg-warning/10 px-3 py-1 text-xs text-warning">
-        <span className="h-1.5 w-1.5 rounded-full bg-warning" /> Backend offline
-      </span>
-    );
-  }, [backendOk]);
-
   return (
     <div className="min-h-screen text-foreground">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/70 backdrop-blur-xl">
@@ -196,7 +158,6 @@ const Workbench = () => {
             </Link>
           </div>
           <div className="flex items-center gap-3">
-            {statusChip}
             <Button variant="ghost" size="sm" asChild className="gap-2">
               <Link to="/">
                 <ArrowLeft className="h-3.5 w-3.5" /> Home
