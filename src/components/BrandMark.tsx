@@ -1,6 +1,3 @@
-import { forwardRef } from "react";
-import { motion } from "framer-motion";
-
 interface BrandMarkProps {
   size?: number;
   className?: string;
@@ -10,17 +7,13 @@ interface BrandMarkProps {
  * LatERAL geometric mark — a stylized lattice-cell intersected by a
  * directional vector. Pure SVG, themed via design tokens.
  */
-export const BrandMark = forwardRef<SVGSVGElement, BrandMarkProps>(({ size = 32, className }, ref) => (
-  <motion.svg
-    ref={ref}
+export const BrandMark = ({ size = 32, className }: BrandMarkProps) => (
+  <svg
     width={size}
     height={size}
     viewBox="0 0 40 40"
     fill="none"
     className={className}
-    initial={{ rotate: -8, opacity: 0 }}
-    animate={{ rotate: 0, opacity: 1 }}
-    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
   >
     <defs>
       <linearGradient id="brand-grad" x1="0" y1="0" x2="40" y2="40">
@@ -53,7 +46,5 @@ export const BrandMark = forwardRef<SVGSVGElement, BrandMarkProps>(({ size = 32,
     />
     {/* Atom */}
     <circle cx="20" cy="18" r="2" fill="hsl(var(--accent))" />
-  </motion.svg>
-));
-
-BrandMark.displayName = "BrandMark";
+  </svg>
+);
