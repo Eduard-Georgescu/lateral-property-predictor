@@ -15,12 +15,21 @@ interface MetricDef {
   hint?: string;
 }
 
+const toKsi = (mpa: number) => mpa * 0.145038;
+
+const elongationRating = (pct: number) => {
+  if (pct >= 20) return "Excellent";
+  if (pct >= 12) return "Fair";
+  if (pct >= 6) return "Limited";
+  return "Low";
+};
+
 const METRICS: MetricDef[] = [
-  { key: "yield_strength", label: "Yield strength", unit: "MPa", icon: Shield, group: "mechanical", format: (v) => v.toFixed(0) },
+  { key: "yield_strength", label: "Yield strength", unit: "MPa / ksi", icon: Shield, group: "mechanical", format: (v) => `${v.toFixed(0)} / ${toKsi(v).toFixed(0)}` },
   { key: "hardness", label: "Hardness", unit: "HV", icon: Gauge, group: "mechanical", format: (v) => v.toFixed(0) },
   { key: "hardness_hv", label: "Hardness (HV)", unit: "HV", icon: Gauge, group: "mechanical", format: (v) => v.toFixed(0) },
   { key: "fracture_toughness", label: "Fracture toughness", unit: "MPa·m½", icon: TrendingUp, group: "mechanical", format: (v) => v.toFixed(1) },
-  { key: "elongation_pct", label: "Elongation", unit: "%", icon: Ruler, group: "mechanical", format: (v) => v.toFixed(1) },
+  { key: "elongation_pct", label: "Elongation", unit: "", icon: Ruler, group: "mechanical", format: (v) => `${v.toFixed(1)}% · ${elongationRating(v)}` },
 
   { key: "density", label: "Density", unit: "g/cm³", icon: Boxes, group: "structural", format: (v) => v.toFixed(3) },
   { key: "lattice_a", label: "Lattice a", unit: "Å", icon: Atom, group: "structural", format: (v) => v.toFixed(4) },
@@ -97,6 +106,14 @@ const humanizeKey = (k: string) =>
     .replace(/\bpct\b/i, "%")
     .replace(/\b([a-z])/g, (m) => m.toUpperCase());
 
+const aerospaceRegime = (serviceC?: number, meltC?: number) => {
+  if (typeof serviceC !== "number" || typeof meltC !== "number") return null;
+  const ratio = (serviceC + 273.15) / (meltC + 273.15);
+  if (ratio >= 0.75) return "Extreme temperature — turbine hot-section and thermal-barrier-limited use";
+  if (ratio >= 0.55) return "Elevated temperature — exhaust systems and hot-section structure";
+  return "Moderate temperature — airframe, housings and structural hardware";
+};
+
 export const ResultsPanel = ({
   results,
   displayName,
@@ -114,6 +131,47 @@ export const ResultsPanel = ({
       grouped[def.group].push({ def, value: v });
       seen.add(String(def.key));
     }
+  }
+
+  if (typeof results.yield_strength === "number" && !Number.isNaN(results.yield_strength)) {
+    grouped.mechanical.push({
+      def: {
+        key: "estimated_uts",
+        label: "Est. UTS",
+        unit: "MPa / ksi",
+        icon: Shield,
+        group: "mechanical",
+        format: (v) => `${v.toFixed(0)} / ${toKsi(v).toFixed(0)}`,
+      },
+      value: results.yield_strength * 1.25,
+    });
+  }
+
+  if (typeof results.melting_point_C === "number" && typeof results.max_service_temp_C === "number") {
+    grouped.thermal.push(
+      {
+        def: {
+          key: "safety_margin_C",
+          label: "Safety margin",
+          unit: "°C",
+          icon: Thermometer,
+          group: "thermal",
+          format: (v) => v.toFixed(0),
+        },
+        value: results.melting_point_C - results.max_service_temp_C,
+      },
+      {
+        def: {
+          key: "homologous_ratio",
+          label: "Homologous ratio",
+          unit: "T/Tm",
+          icon: Flame,
+          group: "thermal",
+          format: (v) => v.toFixed(2),
+        },
+        value: (results.max_service_temp_C + 273.15) / (results.melting_point_C + 273.15),
+      }
+    );
   }
   // Render every other numeric field the backend returned, so nothing is hidden.
   for (const [k, v] of Object.entries(results)) {
@@ -137,6 +195,7 @@ export const ResultsPanel = ({
   const mlConf = (results.ml_confidence * 100).toFixed(0);
   const mlActive = results.ml_confidence > 0;
   const headerName = displayName ?? results.category;
+  const regime = aerospaceRegime(results.max_service_temp_C, results.melting_point_C);
 
   let i = 0;
   return (
@@ -193,6 +252,14 @@ export const ResultsPanel = ({
 
         {/* Metric groups */}
         <div className="space-y-6 p-6">
+          {regime && (
+            <div className="rounded-lg border border-accent/30 bg-accent/10 p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+                Aerospace regime
+              </div>
+              <p className="mt-1 text-sm text-foreground">{regime}</p>
+            </div>
+          )}
           {(Object.keys(grouped) as (MetricDef["group"] | "other")[]).map((g) =>
             grouped[g].length === 0 ? null : (
               <section key={g}>
