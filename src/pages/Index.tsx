@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Beaker, Cpu, ExternalLink, FlaskConical, Sparkles } from "lucide-react";
@@ -6,47 +5,8 @@ import { ArrowRight, Beaker, Cpu, ExternalLink, FlaskConical, Sparkles } from "l
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BrandMark } from "@/components/BrandMark";
-import { checkHealth } from "@/lib/lateralApi";
 
 const Index = () => {
-  const [backendOk, setBackendOk] = useState<boolean | null>(null);
-
-  const probeBackend = async () => {
-    try {
-      const h = await checkHealth();
-      setBackendOk(h.status === "ok");
-    } catch {
-      setBackendOk(false);
-    }
-  };
-
-  useEffect(() => {
-    probeBackend();
-  }, []);
-
-  const statusChip = useMemo(() => {
-    if (backendOk === null) {
-      return (
-        <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-elevated/80 px-3 py-1 text-xs text-muted-foreground">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground/60" />
-          Checking backend…
-        </span>
-      );
-    }
-    if (backendOk) {
-      return (
-        <span className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-xs text-success">
-          <span className="pulse-dot" /> Inference engine online
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-2 rounded-full border border-warning/40 bg-warning/10 px-3 py-1 text-xs text-warning">
-        <span className="h-1.5 w-1.5 rounded-full bg-warning" /> Backend offline
-      </span>
-    );
-  }, [backendOk]);
-
   return (
     <div className="min-h-screen text-foreground">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/70 backdrop-blur-xl">
@@ -61,7 +21,6 @@ const Index = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {statusChip}
             <Button asChild size="sm" className="bg-gradient-primary text-primary-foreground shadow-glow">
               <Link to="/workbench">
                 Open workbench <ArrowRight className="ml-1 h-3.5 w-3.5" />
