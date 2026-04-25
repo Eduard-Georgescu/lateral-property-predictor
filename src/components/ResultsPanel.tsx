@@ -15,6 +15,15 @@ interface MetricDef {
   hint?: string;
 }
 
+const toKsi = (mpa: number) => mpa * 0.145038;
+
+const elongationRating = (pct: number) => {
+  if (pct >= 20) return "Excellent";
+  if (pct >= 12) return "Fair";
+  if (pct >= 6) return "Limited";
+  return "Low";
+};
+
 const METRICS: MetricDef[] = [
   { key: "yield_strength", label: "Yield strength", unit: "MPa / ksi", icon: Shield, group: "mechanical", format: (v) => `${v.toFixed(0)} / ${toKsi(v).toFixed(0)}` },
   { key: "hardness", label: "Hardness", unit: "HV", icon: Gauge, group: "mechanical", format: (v) => v.toFixed(0) },
@@ -96,15 +105,6 @@ const humanizeKey = (k: string) =>
     .replace(/_/g, " ")
     .replace(/\bpct\b/i, "%")
     .replace(/\b([a-z])/g, (m) => m.toUpperCase());
-
-const toKsi = (mpa: number) => mpa * 0.145038;
-
-const elongationRating = (pct: number) => {
-  if (pct >= 20) return "Excellent";
-  if (pct >= 12) return "Fair";
-  if (pct >= 6) return "Limited";
-  return "Low";
-};
 
 const aerospaceRegime = (serviceC?: number, meltC?: number) => {
   if (typeof serviceC !== "number" || typeof meltC !== "number") return null;
